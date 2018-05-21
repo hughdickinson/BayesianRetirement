@@ -25,3 +25,6 @@ class Storage():
 
 class SQLiteStorage(Storage):
     pass
+
+class FileStorage(Storage):
+    pass
