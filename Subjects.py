@@ -1,7 +1,11 @@
+import numpy as np
+
+
 class Subject():
     def __init__(self, annotations=None, trueLabel=None, difficulty=None):
         self._annotations = annotations
         self._difficulty = difficulty
+        self._trueLabel = trueLabel
 
     @property
     def annotations(self):
@@ -9,7 +13,10 @@ class Subject():
 
     @annotations.setter
     def annotations(self, annotations):
-        self._annotations = [annotation for annotation in annotations if issubclass(annotation, AnnotationBase)
+        self._annotations = [
+            annotation for annotation in annotations
+            if issubclass(annotation, AnnotationBase)
+        ]
 
     @property
     def difficulty(self):
@@ -26,6 +33,22 @@ class Subject():
     @trueLabel.setter
     def trueLabel(self, trueLabel):
         self._trueLabel = trueLabel
+
+    def computeTrueLabel(self, annotationPriorModel):
+        validLabels = self._annotations.getUniqueLabels()
+        # Predict subject label
+        labelMlEstimates = []
+        for trueLabel in validLabels:
+            if len(self._annotations.annotations) > 0:
+                dataProb = np.product([
+                    labelModel(trueLabel, annotation)
+                    for annotation in annotations
+                ])
+            else:
+                dataProb = 1.0
+            labelMlEstimates.append(annotationPriorModel(trueLabel) * dataProb)
+
+        self._trueLabel = validLabels[np.argmax(labelMlEstimates)]
 
 
 class Subjects():

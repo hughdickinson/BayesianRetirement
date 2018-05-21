@@ -1,5 +1,7 @@
 import numpy as np
 
+from Classifiers import Classifier
+
 
 class AnnotationBase():
     pass
@@ -7,6 +9,10 @@ class AnnotationBase():
 
 class AnnotationBinary(AnnotationBase):
     def __init__(self, label=None, classifier=None):
+        if not isinstance(classifier, Classifier):
+            raise TypeError(
+                'The classifier argument must be of type {}. Type {} passed.'.
+                format(type(Classifier), type(classifier)))
         self._label = label
         self._classifier = classifier
 
@@ -24,6 +30,10 @@ class AnnotationBinary(AnnotationBase):
 
     @classifier.setter
     def classifier(self, classifier):
+        if not isinstance(classifier, Classifier):
+            raise TypeError(
+                'The classifier argument must be of type {}. Type {} passed.'.
+                format(type(Classifier), type(classifier)))
         self._classifier = classifier
 
 
@@ -69,7 +79,10 @@ class AnnotationKeyPoint(AnnotationBase):
 
 class Annotations():
     def __init__(self, annotations):
-        self._annotations = [annotation for annotation in annotations if issubclass(annotation, AnnotationBase)]
+        self._annotations = [
+            annotation for annotation in annotations
+            if issubclass(annotation, AnnotationBase)
+        ]
 
     @property
     def annotations(self):
@@ -77,7 +90,10 @@ class Annotations():
 
     @annotations.setter
     def annotations(self, annotations):
-        self._annotations = [annotation for annotation in annotations if issubclass(annotation, AnnotationBase)]
+        self._annotations = [
+            annotation for annotation in annotations
+            if issubclass(annotation, AnnotationBase)
+        ]
 
     def items(self):
         for annotation in self._annotations:

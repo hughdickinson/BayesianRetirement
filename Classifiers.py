@@ -3,9 +3,28 @@ import scipy.stats as scistats
 
 
 class Classifier():
-    def __init__(self, skillModel=None, skillPrior=None):
+    def __init__(self, skillModel=None, skillPriorModel=None):
         self._skillModel = skillModel
-        self._skillPrior = skillPrior
+        self._skillPriorModel = skillPriorModel
+        self._skillPriors = None
+        self._skills = None
+        # TODO: Should classifier maintain a list of their annotations for computational efficiency?
+
+    @property
+    def skills(self):
+        if self._skills is None:
+            raise RuntimeError(
+                'Classifier skills have not been computed. Call computeSkills() first.'
+            )
+        return self._skills
+
+    @property
+    def skillPriors(self):
+        if self._skillPriors is None:
+            raise RuntimeError(
+                'Classifier skill priors have not been computed. Call computeSkillPriors() first.'
+            )
+        return self._skills
 
     @property
     def skillModel(self):
@@ -22,6 +41,15 @@ class Classifier():
     @skillModel.setter
     def skillModel(self, skillModel):
         self._skillModel = skillModel
+
+    def computeSkillPriors(self, subjects, **args):
+        self._skillPriors = self._skillPriorModel(subjects, **args)
+
+    def computeSkills(self, subjects, **args):
+        if self._skillPriors is None:
+            self.computeSkillPriors(subjects, **args)
+        self._skills = self.skillModel(self, subjects, self._skillPriors,
+                                       **args)
 
 
 class Classifiers():
@@ -48,14 +76,16 @@ class Classifiers():
 
 
 class ClassifierSkillPriorBase():
-    def __call__(self, annotation, classifier, **args):
-        pass
+    pass
 
 
 class ClassifierSkillPriorBinary(ClassifierSkillPriorBase):
     def __call__(self, subjects, **args):
         """Evaluate a beta PDF prior for all (should be 2!) labels.
         The prior is evaluated by summing over all classifiers and subjects.
+
+        Intuitively, the method computes the probability of any classifier assigning
+        a label given that a specific label is true.
 
         Keyword arguments:
         -- nBeta - Real-valued coefficient controlling the strength of the prior.
@@ -84,7 +114,7 @@ class ClassifierSkillPriorBinary(ClassifierSkillPriorBase):
             for annotation in subject.annotations
         ])
         skillPriors = {uniqueLabel: None for uniqueLabel in uniqueLabels}
-        #TODO: Does the this formulation assume a value of lowCountThreshold?
+        #TODO: Does the this formulation assume a value of lowCountThreshold? Seems to be 2.
         for trueLabel in uniqueLabels:
             # Obtain a list of subjects with true (or consensus) label matching trueLabel.
             subjectsMatchingTrueLabel = subjects.subset(label=trueLabel)
@@ -109,19 +139,21 @@ class ClassifierSkillPriorBinary(ClassifierSkillPriorBase):
 
 
 class ClassifierSkillModelBase():
-    def __call__(self, annotation, classifier, **args):
-        pass
+    pass
 
 
 class ClassifierSkillModelBinary(ClassifierSkillPriorBase):
     """For a binary classification task, the probability model is Bernoulli.
     """
 
-    def __call__(self, classifier, subjects, probModel, **args):
+    def __call__(self, classifier, subjects, priors, **args):
         """Evaluate a Beta PDF skill model for all (should be 2!) labels
         for a single classfier.
         The model is evaluated by summing over all subjects for a single
         classifier.
+
+        Intuitively, the method computes the probability of this classifier assigning
+        a label given that a specific label is true.
 
         Keyword arguments:
         -- nBeta - Real-valued coefficient controlling the strength of the prior.
@@ -144,6 +176,10 @@ class ClassifierSkillModelBinary(ClassifierSkillPriorBase):
             raise TypeError(
                 'The subjects argument must be of type {}. Type {} passed.'.
                 format(type(Subjects), type(subjects)))
+        if not issubclass(priorModel, ClassifierSkillPriorBase):
+            raise TypeError(
+                'The priorModel argument must a subclass of type {}. Type {} passed.'.
+                format(type(ClassifierSkillPriorBase), type(priorModel)))
 
         nBeta = args.get('nBeta', 5.0)
         lowCountProb = args.get('lowCountProb', 0.8)
@@ -175,12 +211,14 @@ class ClassifierSkillModelBinary(ClassifierSkillPriorBase):
         # classifier's annotations are considered.
         for trueLabel in uniqueLabels:
             # Obtain a list of subjects with true (or consensus) label matching trueLabel.
-            subjectsMatchingTrueLabel = classifierSubjects.subset(label=trueLabel)
+            subjectsMatchingTrueLabel = classifierSubjects.subset(
+                label=trueLabel)
             # Obtain the list of all (matching and non-matching) labels for subjects
             # with true (or consensus) label matching trueLabel.
             labelsForSubjectsMatchingTrueLabel = np.asarray([
                 annotation.label for subject in subjectsMatchingTrueLabel
-                for annotation in subject.annotations if id(annotation.classfier) == classifier
+                for annotation in subject.annotations
+                if id(annotation.classfier) == classifier
             ])
             # Count the total number of (matching and non-matching) predictions.
             nLabelsForSubjectsMatchingTrueLabel = labelsForSubjectsMatchingTrueLabel.size
@@ -189,7 +227,7 @@ class ClassifierSkillModelBinary(ClassifierSkillPriorBase):
                 labelsForSubjectsMatchingTrueLabel == trueLabel)
             # Compute the value of the prior model.
             skills.update({
-                trueLabel: (nBeta * probModel(trueLabel) +
+                trueLabel: (nBeta * priors[trueLabel] +
                             nCorrectLabelsForSubjectsMatchingTrueLabel) /
                 (nBeta + nLabelsForSubjectsMatchingTrueLabel)
             })
