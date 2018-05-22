@@ -7,7 +7,7 @@ import boto3
 
 from Annotations import Annotations
 from Classifiers import Classifier
-from Subjects import Subject
+from Subjects import Subject, Subjects
 
 
 class Receiver():
@@ -44,11 +44,10 @@ class UniqueSQSMessage(object):
 
 
 class CaesarSQSReceiver(Receiver):
-    def __init__(self, queueUrl, taskNames=None, annotationType=None):
+    def __init__(self, queueUrl, annotationType=None):
         # Create immutable SQS client
         self._sqs = boto3.client('sqs')
         self._queueUrl = queueUrl
-        self._taskNames = taskNames
         self._annotationType = annotationType
 
     @property
@@ -64,14 +63,6 @@ class CaesarSQSReceiver(Receiver):
         self._queueUrl = queueUrl
 
     @property
-    def taskNames(self):
-        return self._taskNames
-
-    @taskNames.setter
-    def taskNames(self, taskNames):
-        self._taskNames = taskNames
-
-    @property
     def annotationType(self):
         return self._annotationType
 
@@ -80,10 +71,15 @@ class CaesarSQSReceiver(Receiver):
         self._annotationType = annotationType
 
     def extracts(self, **annotationArgs):
-        """ Receive new annotations and return a new Annotations list
-        Annotations implicity encapsulate classifiers. Processing of
-        raw extracted annotations is delegated to instances of the concrete
-        AnnotationBase subclass.
+        """ Receive new annotations and return a new Subjects list
+        Subjects implicitly encapsulate a list of annotations and annotations
+        implicity encapsulate classifiers. Processing of raw extracted
+        annotations is delegated to instances of the concrete AnnotationBase
+        subclass.
+
+        The intention is that the list of subjects is used to update
+        annotations for known subjects or add new subjects with a single
+        annotation to the set of known subjects.
 
         Arguments:
         -- annotationArgs - Arguments forwarded to the conrete AnnotationBase
@@ -96,15 +92,20 @@ class CaesarSQSReceiver(Receiver):
         ]
         # NOTE: Current design passes extracted annotations data to the
         # AnnotationBase subclass's constructor for processing.
-        annotations = Annotations([
-            self.annotationType(
-                classifier=classifier,
-                zooniverseAnnotations=annotations,
-                **annotationArgs)
-            for label, classifier, annotations in extractSummaries
+        subjects = Subjects([
+            Subject(
+                id=subjectId,
+                annotations=Annotations([
+                    self.annotationType(
+                        id=classificationId,
+                        classifier=classifier,
+                        zooniverseAnnotations=zooniverseAnnotations,
+                        **annotationArgs)
+                ])) for classificationId, subjectId, classifier,
+            zooniverseAnnotations in extractSummaries
         ])
 
-        return annotations
+        return subjects
 
     def sqsReceive(self):
         response = self.sqs.receive_message(
@@ -151,10 +152,10 @@ class CaesarSQSReceiver(Receiver):
         # Parse an extract in JSON format and instantiate a new Annotation.
         classificationId = fullExtract['classification_id']
         classifier = Classifier(id=fullExtract['user_id'])
-        subject = Subject(id=fullExtract['subject_id'])
-        annotations = fullExtract['data']['annotations']
+        subjectId = fullExtract['subject_id']
+        annotations = fullExtract['data']['classification']['annotations']
 
-        return subject, classifier, annotations
+        return classificationId, subjectId, classifier, annotations
 
 
 class CaesarTransmitter(Transmitter):

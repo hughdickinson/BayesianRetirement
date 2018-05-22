@@ -66,9 +66,15 @@ class Classifier():
         self._skills = self.skillModel(self, subjects, self.skillPriors,
                                        **args)
 
+    def __str__(self):
+        return '\n'.join(['-**Classifier**-'] + [
+            '{} => {}'.format(name[1:], value)
+            for name, value in vars(self).items()
+        ] + ['-**Classifier**-'])
+
 
 class Classifiers():
-    def __init__(self, classifiers):
+    def __init__(self, classifiers=[]):
         self._classifiers = [
             classifier for classifier in classifiers
             if isinstance(classifier, Classifier)
@@ -88,6 +94,17 @@ class Classifiers():
     def items(self):
         for classifier in self.classifiers:
             yield classifier
+
+    def append(self, classifier):
+        if isinstance(type(classifier), Classifier):
+            self.classifiers.append(classifier)
+        else:
+            raise TypeError(
+                'The classfier argument must an instance of type {}. Type {} passed.'.
+                format(type(Classifier), type(classifier)))
+
+    def __str__(self):
+        return '\n'.join(str(classifier) for classifier in self.classifiers)
 
 
 class ClassifierSkillPriorBase():
@@ -191,7 +208,7 @@ class ClassifierSkillModelBinary(ClassifierSkillPriorBase):
             raise TypeError(
                 'The subjects argument must be of type {}. Type {} passed.'.
                 format(type(Subjects), type(subjects)))
-        if not issubclass(priorModel, ClassifierSkillPriorBase):
+        if not issubclass(type(priorModel), ClassifierSkillPriorBase):
             raise TypeError(
                 'The priorModel argument must a subclass of type {}. Type {} passed.'.
                 format(type(ClassifierSkillPriorBase), type(priorModel)))

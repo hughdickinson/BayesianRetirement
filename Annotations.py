@@ -6,11 +6,13 @@ from Classifiers import Classifier
 
 
 class AnnotationBase():
-    pass
+    def __init__(self):
+        pass
 
 
 class AnnotationBinary(AnnotationBase):
     def __init__(self,
+                 id,
                  classifier=None,
                  zooniverseAnnotations=None,
                  taskName=None,
@@ -20,12 +22,17 @@ class AnnotationBinary(AnnotationBase):
             raise TypeError(
                 'The classifier argument must be of type {}. Type {} passed.'.
                 format(type(Classifier), type(classifier)))
+        self._id = id
         self._classifier = classifier
         self._zooniverseAnnotations = zooniverseAnnotations
-        self._label = self.extractLabel(self.zooniverseAnnotations)
         self._taskName = taskName
         self._trueValue = trueValue
         self._falseValue = falseValue
+        self._label = self.extractLabel()
+
+    @property
+    def id(self):
+        return self._id
 
     @property
     def label(self):
@@ -81,13 +88,20 @@ class AnnotationBinary(AnnotationBase):
 
     def extractLabel(self):
         if self.taskName in self.zooniverseAnnotations:
-            annotationValue = self.zooniverseAnnotations[self.taskName][
+            # print(self.zooniverseAnnotations)
+            annotationValue = self.zooniverseAnnotations[self.taskName][0][
                 'value']
             if self.trueValue is not None and annotationValue == self.trueValue:
                 return True
             if self.trueValue is not None and annotationValue == self.falseValue:
                 return False
         return None
+
+    def __str__(self):
+        return '\n'.join(['-~~AnnotationBinary~~-'] + [
+            '{} => {}'.format(name[1:], value)
+            for name, value in vars(self).items()
+        ] + ['-~~AnnotationBinary~~-'])
 
 
 class AnnotationKeyPoint(AnnotationBase):
@@ -131,10 +145,10 @@ class AnnotationKeyPoint(AnnotationBase):
 
 
 class Annotations():
-    def __init__(self, annotations):
+    def __init__(self, annotations=[]):
         self._annotations = [
             annotation for annotation in annotations
-            if issubclass(annotation, AnnotationBase)
+            if issubclass(type(annotation), AnnotationBase)
         ]
 
     @property
@@ -145,16 +159,28 @@ class Annotations():
     def annotations(self, annotations):
         self._annotations = [
             annotation for annotation in annotations
-            if issubclass(annotation, AnnotationBase)
+            if issubclass(type(annotation), AnnotationBase)
         ]
 
     def items(self):
-        for annotation in self._annotations:
+        for annotation in self.annotations:
             yield annotation
 
+    def append(self, annotations):
+        if issubclass(type(annotations), AnnotationBase):
+            self.annotations.append(annotations)
+        elif isinstance(annotations, Annotations):
+            self.annotations.extend(annotations.annotations)
+        else:
+            raise TypeError(
+                'The annotation argument must a subclass of type {}. Type {} passed.'.
+                format(type(AnnotationBase), type(annotation)))
+
     def getUniqueLabels(self):
-        return np.unique(
-            [annotation.label for annotation in self._annotations])
+        return np.unique([annotation.label for annotation in self.annotations])
+
+    def __str__(self):
+        return '\n'.join(str(annotation) for annotation in self.annotations)
 
 
 class AnnotationPriorBase():
