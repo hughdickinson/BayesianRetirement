@@ -1,11 +1,32 @@
 import numpy as np
 
+from Annotations import AnnotationBase, Annotations
+
 
 class Subject():
-    def __init__(self, annotations=None, trueLabel=None, difficulty=None):
+    def __init__(self,
+                 id=None,
+                 annotations=None,
+                 trueLabel=None,
+                 difficulty=None):
+        self._id = id
         self._annotations = annotations
         self._difficulty = difficulty
         self._trueLabel = trueLabel
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __hash__(self):
+        return hash(self.id)
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, id):
+        self._id = id
 
     @property
     def annotations(self):
@@ -13,10 +34,10 @@ class Subject():
 
     @annotations.setter
     def annotations(self, annotations):
-        self._annotations = [
+        self._annotations = Annotations([
             annotation for annotation in annotations
             if issubclass(annotation, AnnotationBase)
-        ]
+        ])
 
     @property
     def difficulty(self):
@@ -35,14 +56,14 @@ class Subject():
         self._trueLabel = trueLabel
 
     def computeTrueLabel(self, annotationPriorModel):
-        validLabels = self._annotations.getUniqueLabels()
+        validLabels = self.annotations.getUniqueLabels()
         # Predict subject label
         labelMlEstimates = []
         for trueLabel in validLabels:
-            if len(self._annotations.annotations) > 0:
+            if len(self.annotations.annotations) > 0:
                 dataProb = np.product([
                     labelModel(trueLabel, annotation)
-                    for annotation in annotations
+                    for annotation in self.annotations.items()
                 ])
             else:
                 dataProb = 1.0
@@ -68,12 +89,12 @@ class Subjects():
         ]
 
     def items(self):
-        for subject in self._subjects:
+        for subject in self.subjects:
             yield subject
 
     def subset(self, trueLabel):
         return Subjects([
-            subject for subject in self._subjects
+            subject for subject in self.subjects
             if isinstance(subject, Subject) and subject.trueLabel == trueLabel
         ])
 

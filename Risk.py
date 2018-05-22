@@ -70,7 +70,7 @@ class AnnotationPriorBinary():
         super.__init()
 
         self._successProb = args.get('successProb', 0.5)
-        self._failureProb = 1.0 - self._successProb
+        self._failureProb = 1.0 - self.successProb
 
     @property
     def successProb(self):
@@ -80,8 +80,8 @@ class AnnotationPriorBinary():
     def successProb(self, successProb):
         """Setter maintains unit sum of outcome probabilities.
         """
-        self._successProb = successProb
-        self._failureProb = 1.0 - self._successProb
+        self.successProb = successProb
+        self.failureProb = 1.0 - self.successProb
 
     @property
     def failureProb(self):
@@ -91,14 +91,14 @@ class AnnotationPriorBinary():
     def successProb(self, failureProb):
         """Setter maintains unit sum of outcome probabilities.
         """
-        self._failureProb = failureProb
-        self._successProb = 1.0 - self._failureProb
+        self.failureProb = failureProb
+        self.successProb = 1.0 - self.failureProb
 
     def __call__(self, trueLabel):
         """Return probability obtaining trueLabel.
         """
         if trueLabel in AnnotationPriorBinary.validLabels:
-            return self._successProb if trueLabel else self._failureProb
+            return self.successProb if trueLabel else self.failureProb
         else:
             raise ValueError('The trueLabel argument must be in of {}.'.format(
                 AnnotationPriorBinary.validLabels))

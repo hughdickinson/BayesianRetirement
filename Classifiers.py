@@ -3,12 +3,27 @@ import scipy.stats as scistats
 
 
 class Classifier():
-    def __init__(self, skillModel=None, skillPriorModel=None):
+    def __init__(self, id=None, skillModel=None, skillPriorModel=None):
+        self._id = id
         self._skillModel = skillModel
         self._skillPriorModel = skillPriorModel
         self._skillPriors = None
         self._skills = None
         # TODO: Should classifier maintain a list of their annotations for computational efficiency?
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __hash__(self):
+        return hash(self.id)
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, id):
+        self._id = id
 
     @property
     def skills(self):
@@ -48,7 +63,7 @@ class Classifier():
     def computeSkills(self, subjects, **args):
         if self._skillPriors is None:
             self.computeSkillPriors(subjects, **args)
-        self._skills = self.skillModel(self, subjects, self._skillPriors,
+        self._skills = self.skillModel(self, subjects, self.skillPriors,
                                        **args)
 
 
@@ -71,7 +86,7 @@ class Classifiers():
         ]
 
     def items(self):
-        for classifier in self._classifiers:
+        for classifier in self.classifiers:
             yield classifier
 
 

@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 
 from Classifiers import Classifier
@@ -8,13 +10,22 @@ class AnnotationBase():
 
 
 class AnnotationBinary(AnnotationBase):
-    def __init__(self, label=None, classifier=None):
+    def __init__(self,
+                 classifier=None,
+                 zooniverseAnnotations=None,
+                 taskName=None,
+                 trueValue=None,
+                 falseValue=None):
         if not isinstance(classifier, Classifier):
             raise TypeError(
                 'The classifier argument must be of type {}. Type {} passed.'.
                 format(type(Classifier), type(classifier)))
-        self._label = label
         self._classifier = classifier
+        self._zooniverseAnnotations = zooniverseAnnotations
+        self._label = self.extractLabel(self.zooniverseAnnotations)
+        self._taskName = taskName
+        self._trueValue = trueValue
+        self._falseValue = falseValue
 
     @property
     def label(self):
@@ -23,6 +34,22 @@ class AnnotationBinary(AnnotationBase):
     @label.setter
     def label(self, label):
         self._label = label
+
+    @property
+    def trueValue(self):
+        return self._trueValue
+
+    @trueValue.setter
+    def label(self, trueValue):
+        self._trueValue = trueValue
+
+    @property
+    def falseValue(self):
+        return self._falseValue
+
+    @falseValue.setter
+    def label(self, falseValue):
+        self._falseValue = falseValue
 
     @property
     def classifier(self):
@@ -35,6 +62,32 @@ class AnnotationBinary(AnnotationBase):
                 'The classifier argument must be of type {}. Type {} passed.'.
                 format(type(Classifier), type(classifier)))
         self._classifier = classifier
+
+    @property
+    def taskName(self):
+        return self._taskName
+
+    @taskName.setter
+    def taskName(self, taskName):
+        self._taskName = taskName
+
+    @property
+    def zooniverseAnnotations(self):
+        return self._zooniverseAnnotations
+
+    @zooniverseAnnotations.setter
+    def zooniverseAnnotations(self, zooniverseAnnotations):
+        self._zooniverseAnnotations = zooniverseAnnotations
+
+    def extractLabel(self):
+        if self.taskName in self.zooniverseAnnotations:
+            annotationValue = self.zooniverseAnnotations[self.taskName][
+                'value']
+            if self.trueValue is not None and annotationValue == self.trueValue:
+                return True
+            if self.trueValue is not None and annotationValue == self.falseValue:
+                return False
+        return None
 
 
 class AnnotationKeyPoint(AnnotationBase):
