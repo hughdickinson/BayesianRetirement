@@ -1,7 +1,9 @@
 # Subjects(Difficulty) -> Annotations -> Classifiers(Skill)
 import scipy.stats as scistats
+import numpy as np
 
-from Annotations import Annotation, Annotations
+from Annotations import Annotations
+from AnnotationModels import AnnotationModelBase, AnnotationPriorBase
 from Subjects import Subject, Subjects
 
 
@@ -30,6 +32,8 @@ class LossModelBinary(LossModelBase):
         elif predictedLabel and not trueLabel:
             #False positive
             return self._falsePosLoss
+        else:
+            return 0
 
     @property
     def falsePosLoss(self):
@@ -46,94 +50,6 @@ class LossModelBinary(LossModelBase):
     @falseNegLoss.setter
     def falseNegLoss(self, falseNegLoss):
         self._falseNegLoss = falseNegLoss
-
-
-class AnnotationPriorBase():
-
-    validLabels = AnnotationModelBase.validLabels
-    """Subclasses compute the prior probability of a subject having a particular
-    true label.
-    """
-
-    def __init__(self):
-        self._priorsForLabels = None
-
-
-class AnnotationPriorBinary():
-    """Implements a Beta distribution prior for the annotation provided
-    by a single classifier.
-    """
-
-    validLabels = AnnotationModelBinary.validLabels
-
-    def __init__(self, **args):
-        super.__init()
-
-        self._successProb = args.get('successProb', 0.5)
-        self._failureProb = 1.0 - self.successProb
-
-    @property
-    def successProb(self):
-        return self._successProb
-
-    @successProb.setter
-    def successProb(self, successProb):
-        """Setter maintains unit sum of outcome probabilities.
-        """
-        self.successProb = successProb
-        self.failureProb = 1.0 - self.successProb
-
-    @property
-    def failureProb(self):
-        return self._failureProb
-
-    @successProb.setter
-    def successProb(self, failureProb):
-        """Setter maintains unit sum of outcome probabilities.
-        """
-        self.failureProb = failureProb
-        self.successProb = 1.0 - self.failureProb
-
-    def __call__(self, trueLabel):
-        """Return probability obtaining trueLabel.
-        """
-        if trueLabel in AnnotationPriorBinary.validLabels:
-            return self.successProb if trueLabel else self.failureProb
-        else:
-            raise ValueError('The trueLabel argument must be in of {}.'.format(
-                AnnotationPriorBinary.validLabels))
-
-
-class AnnotationModelBase():
-
-    validLabels = []
-    """Subclasses compute the probability of classifiers assigning a particular label
-    given a particular true label.
-    """
-    pass
-
-
-class AnnotationModelBinary(AnnotationModelBase):
-    """Implements a Bernoulli model of a classifier assigning
-    annotationLabel when trueLabel is true.
-    """
-
-    validLabels = [True, False]
-
-    def __init__(self, **args):
-        super.__init(**args)
-
-    def __call__(self, trueLabel, annotation):
-        """Computes the probability of a classifier assigning annotationLabel when
-        trueLabel is true.
-
-        Depends upon the precomputation of the classifier's skill. Recall that
-        the skill is defined as the probability of assigning any valid label given
-        a specific true label.
-        """
-        return annotation.classifier.skills[trueLabel] if (
-            trueLabel == annotation.label
-        ) else 1.0 - annotation.classifier.skills[trueLabel]
 
 
 class Risk():
@@ -160,34 +76,35 @@ class Risk():
         if not isinstance(annotations, Annotations):
             raise TypeError(
                 'The annotations argument must be of type {}. Type {} passed.'.
-                format(type(Annotations), type(annotations)))
+                format(type(Annotations).__name__, type(annotations)))
         if not isinstance(subject, Subject):
             raise TypeError(
                 'The subject argument must be of type {}. Type {} passed.'.
-                format(type(Subject), type(subject)))
-        if not issubclass(lossModel, LossModelBase):
+                format(type(Subject).__name__, type(subject)))
+        if not issubclass(type(lossModel), LossModelBase):
             raise TypeError(
                 'The lossModel argument must inherit from {}. Type {} passed.'.
-                format(type(LossModelBase), type(lossModel)))
-        if not issubclass(annotationModel, AnnotationModelBase):
+                format(type(LossModelBase).__name__, type(lossModel)))
+        if not issubclass(type(annotationModel), AnnotationModelBase):
             raise TypeError(
                 'The annotationModel argument must inherit from {}. Type {} passed.'.
-                format(type(AnnotationModelBase), type(annotationModel)))
-        if not issubclass(annotationPriorModel, AnnotationPriorBase):
+                format(type(AnnotationModelBase).__name__, type(annotationModel)))
+        if not issubclass(type(annotationPriorModel), AnnotationPriorBase):
             raise TypeError(
                 'The annotationPriorModel argument must inherit from {}. Type {} passed.'.
-                format(type(AnnotationPriorBase), type(annotationPriorModel)))
-
-        # TODO: This should be called before computing classifier skills upon which it
-        # depends! In other words needs to be moved to a main driver routine somewhere.
-        subject.computeTrueLabel()
+                format(type(AnnotationPriorBase).__name__, type(annotationPriorModel)))
 
         trueLabelRisks = []
         for trueLabel in annotations.getUniqueLabels():
             posteriorProb = annotationPriorModel(trueLabel) * np.prod([
                 annotationModel(trueLabel, annotation)
-                for annotation in annotations
+                for annotation in annotations.items()
             ])
+            print('posteriorProb =>', posteriorProb, 'lossModel(trueLabel, subject.trueLabel) =>', lossModel(trueLabel, subject.trueLabel))
+            print(trueLabel, subject.trueLabel)
             trueLabelRisks.append(
-                (lossModel(trueLabel, subject.trueLabel()) * posteriorProb) / posteriorProb)
+                (lossModel(trueLabel, subject.trueLabel) * posteriorProb) /
+                posteriorProb)
         risk = np.sum(trueLabelRisks)
+
+        return risk

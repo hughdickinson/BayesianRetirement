@@ -35,6 +35,7 @@ class Subject():
 
     @annotations.setter
     def annotations(self, annotations):
+        # TODO: make compatible with passing a readymade Annotations instance
         self._annotations = Annotations([
             annotation for annotation in annotations
             if issubclass(annotation, AnnotationBase)
@@ -56,14 +57,14 @@ class Subject():
     def trueLabel(self, trueLabel):
         self._trueLabel = trueLabel
 
-    def computeTrueLabel(self, annotationPriorModel):
+    def computeTrueLabel(self, annotationModel, annotationPriorModel):
         validLabels = self.annotations.getUniqueLabels()
         # Predict subject label
         labelMlEstimates = []
         for trueLabel in validLabels:
             if len(self.annotations.annotations) > 0:
                 dataProb = np.product([
-                    labelModel(trueLabel, annotation)
+                    annotationModel(trueLabel, annotation)
                     for annotation in self.annotations.items()
                 ])
             else:
@@ -127,16 +128,9 @@ class Subjects():
     def subset(self, id=None, trueLabel=None):
         return Subjects([
             subject for subject in self.subjects
-            if isinstance(subject, Subject) and subsetCriterion(subject, id, trueLabel)
+            if isinstance(subject, Subject)
+            and self.subsetCriterion(subject, id, trueLabel)
         ])
 
     def __str__(self):
         return '\n'.join(str(subject) for subject in self.subjects)
-
-
-class SubjectDifficultyPriorBase():
-    pass
-
-
-class SubjectDifficultyModelBase():
-    pass

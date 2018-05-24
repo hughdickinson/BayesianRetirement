@@ -70,7 +70,7 @@ class CaesarSQSReceiver(Receiver):
     def annotationType(self, taskNames):
         self._annotationType = annotationType
 
-    def extracts(self, **annotationArgs):
+    def extracts(self, **extraArgs):
         """ Receive new annotations and return a new Subjects list
         Subjects implicitly encapsulate a list of annotations and annotations
         implicity encapsulate classifiers. Processing of raw extracted
@@ -82,8 +82,8 @@ class CaesarSQSReceiver(Receiver):
         annotation to the set of known subjects.
 
         Arguments:
-        -- annotationArgs - Arguments forwarded to the conrete AnnotationBase
-        subclass's constructor.
+        -- extraArgs - Arguments forwarded to the conrete AnnotationBase
+        subclass's constructor and the Classifier constructor.
         """
         uniqueMessages = self.sqsReceive()[0]
         extractSummaries = [
@@ -98,10 +98,10 @@ class CaesarSQSReceiver(Receiver):
                 annotations=Annotations([
                     self.annotationType(
                         id=classificationId,
-                        classifier=classifier,
+                        classifier=Classifier(id=classifierId, **extraArgs),
                         zooniverseAnnotations=zooniverseAnnotations,
-                        **annotationArgs)
-                ])) for classificationId, subjectId, classifier,
+                        **extraArgs)
+                ])) for classificationId, subjectId, classifierId,
             zooniverseAnnotations in extractSummaries
         ])
 
@@ -151,11 +151,11 @@ class CaesarSQSReceiver(Receiver):
     def parseExtractSummary(self, fullExtract):
         # Parse an extract in JSON format and instantiate a new Annotation.
         classificationId = fullExtract['classification_id']
-        classifier = Classifier(id=fullExtract['user_id'])
+        classifierId = fullExtract['user_id']
         subjectId = fullExtract['subject_id']
         annotations = fullExtract['data']['classification']['annotations']
 
-        return classificationId, subjectId, classifier, annotations
+        return classificationId, subjectId, classifierId, annotations
 
 
 class CaesarTransmitter(Transmitter):

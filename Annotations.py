@@ -1,5 +1,3 @@
-import itertools
-
 import numpy as np
 
 from Classifiers import Classifier
@@ -17,7 +15,8 @@ class AnnotationBinary(AnnotationBase):
                  zooniverseAnnotations=None,
                  taskName=None,
                  trueValue=None,
-                 falseValue=None):
+                 falseValue=None,
+                 **kwargs):
         if not isinstance(classifier, Classifier):
             raise TypeError(
                 'The classifier argument must be of type {}. Type {} passed.'.
@@ -181,16 +180,3 @@ class Annotations():
 
     def __str__(self):
         return '\n'.join(str(annotation) for annotation in self.annotations)
-
-
-class AnnotationPriorBase():
-    """Base class for prior distributions over possible annotation labels.
-    """
-    pass
-
-
-class AnnotationModelBase():
-    """Base class for annotation label probability models e.g. Bernoulli model for
-    binary choice tasks.
-    """
-    pass
