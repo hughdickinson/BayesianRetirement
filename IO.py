@@ -4,8 +4,10 @@ import hashlib
 import json
 
 import boto3
+import numpy as np
+import scipy.stats as scistats
 
-from Annotations import Annotations
+from Annotations import AnnotationBinary, Annotations
 from Classifiers import Classifier
 from Subjects import Subject, Subjects
 
@@ -167,8 +169,169 @@ class CaesarTransmitter(Transmitter):
         pass
 
 
-class Storage():
-    pass
+class BinarySimulationReciever(Receiver):
+    def __init__(self, numClassifiers, numSubjects, numAnnotationsPerSubject,
+                 trueProb, successProb):
+        """Class to simulate reception of binary classifications.
+
+        Parameters
+        ----------
+        numClassifiers : int
+            Number of independent classifiers to simulate.
+        numSubjects : int
+            Number of distinct subjects to simulate.
+        numAnnotationsPerSubject : int
+            Number of annotations to simulate for each subject.
+            Must be <= numClassifiers
+        trueProb : float
+            Probability that a subject's correct label is True.
+        successProb : float or array-like with size numClassifiers
+            Probability that a classifier will correctly classify a
+            subject.
+
+        Returns
+        -------
+        BinarySimulationReciever
+            Initialized instance.
+
+        """
+        self._numClassifiers = numClassifiers
+        self._numSubjects = numSubjects
+        self._numAnnotationsPerSubject = min(numAnnotationsPerSubject,
+                                             self.numClassifiers)
+        self._trueProb = trueProb
+        self._successProb = successProb
+        self._classifiers = None
+
+    @property
+    def numClassfiers(self):
+        return self._numClassfiers
+
+    @numClassfiers.setter
+    def numClassfiers(self, numClassfiers):
+        self._numClassfiers = numClassfiers
+
+    @property
+    def numSubjects(self):
+        return self._numSubjects
+
+    @numSubjects.setter
+    def numSubjects(self, numSubjects):
+        self._numSubjects = numSubjects
+
+    @property
+    def numAnnotationsPerSubject(self):
+        return self._numAnnotationsPerSubject
+
+    @numAnnotationsPerSubject.setter
+    def numAnnotationsPerSubject(self, numAnnotationsPerSubject):
+        self._numAnnotationsPerSubject = min(numAnnotationsPerSubject,
+                                             self.numClassifiers)
+
+    @property
+    def trueProb(self):
+        return self._trueProb
+
+    @trueProb.setter
+    def trueProb(self, trueProb):
+        self._trueProb = trueProb
+
+    @property
+    def successProb(self):
+        return self._successProb
+
+    @successProb.setter
+    def successProb(self, successProb):
+        self._successProb = successProb
+
+    @property
+    def classifiers(self):
+        return self._classifiers
+
+    @classifiers.setter
+    def classifiers(self, classifiers):
+        self._classifiers = classifiers
+
+    def genClassifiers(self):
+        """Generate a set of simulated classifiers with
+        appropriate skill settings.
+
+        Returns
+        -------
+        None
+            Sets the `classifiers` instance attribute directly.
+
+        """
+        skillModel = ClassifierSkillModelBinary()
+        skillPriorModel = ClassifierSkillPriorBinary()
+        self.classifiers = Classifiers([
+            Classifier(
+                id=classifierId,
+                skillModel=skillModel,
+                skillPriorModel=skillPriorModel)
+            for classifierId in range(self.numClassfiers)
+        ])
+
+    def genAnnotation(self, classifier, trueLabel, isCorrect):
+        """Generate a simulated annotation.
+
+        Returns
+        -------
+        AnnotationBinary
+            A simulated annotation.
+
+        """
+        annotation = AnnotationBinary(
+            classifier=classifier,
+            zooniverseAnnotations={
+                'T0': [{
+                    'value':
+                    bool(trueLabel) if bool(isCorrect) else not bool(trueLabel)
+                }]
+            },
+            taskName='T0',
+            trueValue=1,
+            falseValue=0)
+
+    def genSubjects(self):
+        """Generate an ensemble of simulated subjects.
+
+        The true label for each subject is a random variate drawn from a
+        Bernoulli distribution with success probability self.trueProb.
+
+        To determine whether a classifier corretly labels the subject
+        a random variate is drawn from a Bernoulli distribution with success
+        probability self.successProb.
+
+        Returns
+        -------
+        Subjects
+            Collection of simulated subjects.
+
+        """
+
+        if self.classifiers is None:
+            self.genClassifiers()
+
+        # TODO: Simulation should include difficulty once implemented
+        # NOTE: At most one annotation per classifier is generated for each subject.
+        subjects = Subjects([
+            Subject(
+                id=subjectId,
+                annotations=Annotations([
+                    genAnnotation(classifier, trueLabel, isCorrect)
+                    for isCorrect, classifier in zip(
+                        scistats.bernoulli(self.successProb).rvs(
+                            self.numAnnotationsPerSubject),
+                        np.random.choice(
+                            self.classifiers.classifiers,
+                            replace=False,
+                            size=self.numAnnotationsPerSubject))
+                ]),
+                trueLabel=trueLabel) for trueLabel, subjectId in zip(
+                    scistats.bernoulli(self.trueProb).rvs(self.numSubjects),
+                    range(self.numSubjects))
+        ])
 
 
 class SQLiteStorage(Storage):
