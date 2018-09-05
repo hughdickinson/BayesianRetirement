@@ -2,14 +2,22 @@
 
 import hashlib
 import json
+import collections
 
-import boto3
 import numpy as np
 import scipy.stats as scistats
 
+import boto3
 from Annotations import AnnotationBinary, Annotations
-from Classifiers import Classifier
+from Classifiers import Classifier, Classifiers
+from ClassifierSkillModels import (ClassifierSkillModelBinary,
+                                   ClassifierSkillPriorBinary)
 from Subjects import Subject, Subjects
+
+
+class Storage():
+    def __init__(self):
+        pass
 
 
 class Receiver():
@@ -169,7 +177,7 @@ class CaesarTransmitter(Transmitter):
         pass
 
 
-class BinarySimulationReciever(Receiver):
+class BinarySimulationReceiver(Receiver):
     def __init__(self, numClassifiers, numSubjects, numAnnotationsPerSubject,
                  trueProb, successProb):
         """Class to simulate reception of binary classifications.
@@ -183,7 +191,7 @@ class BinarySimulationReciever(Receiver):
         numAnnotationsPerSubject : int
             Number of annotations to simulate for each subject.
             Must be <= numClassifiers
-        trueProb : float
+        trueProb : float or array-like with size numClassifiers
             Probability that a subject's correct label is True.
         successProb : float or array-like with size numClassifiers
             Probability that a classifier will correctly classify a
@@ -202,14 +210,17 @@ class BinarySimulationReciever(Receiver):
         self._trueProb = trueProb
         self._successProb = successProb
         self._classifiers = None
+        self._annotationIds = [0]
 
     @property
-    def numClassfiers(self):
-        return self._numClassfiers
+    def numClassifiers(self):
+        return self._numClassifiers
 
-    @numClassfiers.setter
-    def numClassfiers(self, numClassfiers):
-        self._numClassfiers = numClassfiers
+    @numClassifiers.setter
+    def numClassfiers(self, numClassifiers):
+        if self.numAnnotationsPerSubject > numClassfiers:
+            self.numAnnotationsPerSubject = numClassfiers
+        self._numClassifiers = numClassifiers
 
     @property
     def numSubjects(self):
@@ -252,6 +263,10 @@ class BinarySimulationReciever(Receiver):
     def classifiers(self, classifiers):
         self._classifiers = classifiers
 
+    @property
+    def annotationIds(self):
+        return self._annotationIds
+
     def genClassifiers(self):
         """Generate a set of simulated classifiers with
         appropriate skill settings.
@@ -262,6 +277,7 @@ class BinarySimulationReciever(Receiver):
             Sets the `classifiers` instance attribute directly.
 
         """
+        # Models are simple placeholders
         skillModel = ClassifierSkillModelBinary()
         skillPriorModel = ClassifierSkillPriorBinary()
         self.classifiers = Classifiers([
@@ -271,6 +287,11 @@ class BinarySimulationReciever(Receiver):
                 skillPriorModel=skillPriorModel)
             for classifierId in range(self.numClassfiers)
         ])
+
+    def genAnnotationId(self):
+        id  = self.annotationIds[-1]
+        self.annotationIds.append(id + 1)
+        return id
 
     def genAnnotation(self, classifier, trueLabel, isCorrect):
         """Generate a simulated annotation.
@@ -282,6 +303,7 @@ class BinarySimulationReciever(Receiver):
 
         """
         annotation = AnnotationBinary(
+            id=self.genAnnotationId(),
             classifier=classifier,
             zooniverseAnnotations={
                 'T0': [{
@@ -292,6 +314,22 @@ class BinarySimulationReciever(Receiver):
             taskName='T0',
             trueValue=1,
             falseValue=0)
+        return annotation
+
+    def getProbs(self, prob, requiredCount):
+        independentProbs = isinstance(prob, collections.abc.Collection) and len(prob) == requiredCount and np.all(np.isreal(prob))
+
+        if independentProbs :
+            # independent success probability for each classifier
+            indicators = scistats.bernoulli(prob).rvs()
+        elif np.isreal(prob):
+            # single shared success probability for all classifiers
+            indicators = scistats.bernoulli(prob).rvs(
+                requiredCount)
+        else:
+            raise TypeError('BinarySimulationReceiver.getProbs: "prob" must be a real-valued numeric type or an array-like thereof.')
+
+        return indicators
 
     def genSubjects(self):
         """Generate an ensemble of simulated subjects.
@@ -313,25 +351,29 @@ class BinarySimulationReciever(Receiver):
         if self.classifiers is None:
             self.genClassifiers()
 
+        successIndicators = self.getProbs(self.successProb, self.numClassfiers)
+
+        truthIndicators = self.getProbs(self.trueProb, self.numSubjects)
+
         # TODO: Simulation should include difficulty once implemented
         # NOTE: At most one annotation per classifier is generated for each subject.
         subjects = Subjects([
             Subject(
                 id=subjectId,
                 annotations=Annotations([
-                    genAnnotation(classifier, trueLabel, isCorrect)
+                    self.genAnnotation(classifier, trueLabel, isCorrect)
                     for isCorrect, classifier in zip(
-                        scistats.bernoulli(self.successProb).rvs(
-                            self.numAnnotationsPerSubject),
+                        successIndicators,
                         np.random.choice(
                             self.classifiers.classifiers,
                             replace=False,
                             size=self.numAnnotationsPerSubject))
                 ]),
                 trueLabel=trueLabel) for trueLabel, subjectId in zip(
-                    scistats.bernoulli(self.trueProb).rvs(self.numSubjects),
+                    truthIndicators,
                     range(self.numSubjects))
         ])
+        return subjects
 
 
 class SQLiteStorage(Storage):
@@ -340,3 +382,15 @@ class SQLiteStorage(Storage):
 
 class FileStorage(Storage):
     pass
+
+
+# testSim = BinarySimulationReciever(
+#     numClassifiers=200,
+#     numSubjects=200,
+#     numAnnotationsPerSubject=40,
+#     trueProb=0.5,
+#     successProb=0.1)
+#
+# %matplotlib inline
+# testSubjects = testSim.genSubjects()
+# testSubjects.plotAnnotations()

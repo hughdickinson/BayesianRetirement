@@ -132,7 +132,7 @@ class ClassifierSkillModelBinary(ClassifierSkillPriorBase):
             if annotation.classifier.id == classifier.id
         ])
 
-        print('classifierAnnotations => {}'.format(classifierAnnotations))
+        # print('classifierAnnotations => {}'.format(classifierAnnotations))
 
         # Get unique labels for this classifier
         uniqueLabels = np.unique([
@@ -140,7 +140,7 @@ class ClassifierSkillModelBinary(ClassifierSkillPriorBase):
             for annotation in classifierAnnotations
         ])
 
-        print('uniqueLabels => {}'.format(uniqueLabels))
+        # print('uniqueLabels => {}'.format(uniqueLabels))
 
         # Get subjects with annotations provided by this classifier
         classifierSubjects = Subjects([
@@ -152,7 +152,7 @@ class ClassifierSkillModelBinary(ClassifierSkillPriorBase):
 
         skills = {uniqueLabel: None for uniqueLabel in uniqueLabels}
 
-        print('skills => '.format(skills))
+        # print('skills => '.format(skills))
 
         #TODO: Does the this formulation assume a value of lowCountThreshold?
         # Subsequent line differs from the prior model since only a single
@@ -171,11 +171,11 @@ class ClassifierSkillModelBinary(ClassifierSkillPriorBase):
             ])
             # Count the total number of (matching and non-matching) predictions.
             nLabelsForSubjectsMatchingTrueLabel = labelsForSubjectsMatchingTrueLabel.size
-            # Count the total number of matching predictionsself.
+            # Count the total number of matching predictions.
             nCorrectLabelsForSubjectsMatchingTrueLabel = np.sum(
                 labelsForSubjectsMatchingTrueLabel == trueLabel)
             # Compute the value of the model.
-            print('priors => {}'.format(priors))
+            # print('priors => {}'.format(priors))
             skills.update({
                 trueLabel: (nBeta * priors[trueLabel] +
                             nCorrectLabelsForSubjectsMatchingTrueLabel) /

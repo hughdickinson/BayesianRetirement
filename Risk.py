@@ -95,16 +95,17 @@ class Risk():
                 format(type(AnnotationPriorBase).__name__, type(annotationPriorModel)))
 
         trueLabelRisks = []
+        posteriorProbSum = 0
         for trueLabel in annotations.getUniqueLabels():
             posteriorProb = annotationPriorModel(trueLabel) * np.prod([
                 annotationModel(trueLabel, annotation)
                 for annotation in annotations.items()
             ])
-            print('posteriorProb =>', posteriorProb, 'lossModel(trueLabel, subject.trueLabel) =>', lossModel(trueLabel, subject.trueLabel))
-            print(trueLabel, subject.trueLabel)
+            # print('posteriorProb =>', posteriorProb, 'lossModel(trueLabel, subject.trueLabel) =>', lossModel(trueLabel, subject.trueLabel))
+            # print(trueLabel, subject.trueLabel)
             trueLabelRisks.append(
-                (lossModel(trueLabel, subject.trueLabel) * posteriorProb) /
-                posteriorProb)
-        risk = np.sum(trueLabelRisks)
+                (lossModel(trueLabel, subject.trueLabel) * posteriorProb))
+            posteriorProbSum += posteriorProb
+        risk = np.sum(trueLabelRisks)/posteriorProbSum
 
         return risk

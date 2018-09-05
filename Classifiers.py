@@ -12,6 +12,7 @@ class Classifier():
         self._skillPriorModel = skillPriorModel
         self._skillPriors = None
         self._skills = None
+
         # TODO: Should classifier maintain a list of their annotations for computational efficiency?
 
     def __eq__(self, other):
@@ -67,9 +68,23 @@ class Classifier():
     def computeSkills(self, subjects, initMode=False, **args):
         if self._skillPriors is None:
             self.computeSkillPriors(subjects, initMode=initMode, **args)
-            print('self.skillPriors => {}'.format(self.skillPriors))
+            # print('self.skillPriors => {}'.format(self.skillPriors))
         self._skills = self.skillModel(self, subjects, self.skillPriors,
                                        initMode, **args)
+
+    def getSkill(self, trueLabel):
+        if self.skills is None:
+            raise RuntimeError(
+                'Classifier skills have not been computed. Call computeSkills() first.'
+            )
+        if trueLabel in self.skills:
+            return self.skills[trueLabel]
+        else:
+            # This can happen if a classifier has never annotated a
+            # subject with the specified label. Returning 0.5 indicates
+            # that success and failure are equally likely.
+            return 0.5
+
 
     def __str__(self):
         return '\n'.join(['-**Classifier**-'] + [

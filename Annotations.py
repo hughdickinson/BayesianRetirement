@@ -1,11 +1,16 @@
 import numpy as np
 
 from Classifiers import Classifier
+from Labels import *
 
 
 class AnnotationBase():
-    def __init__(self):
-        pass
+    def __init__(self, labelType=RealValuedLabelType):
+        self._labelType = labelType
+
+    @property
+    def labelType(self):
+        return self._labelType
 
 
 class AnnotationBinary(AnnotationBase):
@@ -17,6 +22,7 @@ class AnnotationBinary(AnnotationBase):
                  trueValue=None,
                  falseValue=None,
                  **kwargs):
+        super().__init__(BoolValuedLabelType)
         if not isinstance(classifier, Classifier):
             raise TypeError(
                 'The classifier argument must be of type {}. Type {} passed.'.
@@ -46,7 +52,7 @@ class AnnotationBinary(AnnotationBase):
         return self._trueValue
 
     @trueValue.setter
-    def label(self, trueValue):
+    def trueValue(self, trueValue):
         self._trueValue = trueValue
 
     @property
@@ -54,7 +60,7 @@ class AnnotationBinary(AnnotationBase):
         return self._falseValue
 
     @falseValue.setter
-    def label(self, falseValue):
+    def falseValue(self, falseValue):
         self._falseValue = falseValue
 
     @property
@@ -177,6 +183,11 @@ class Annotations():
 
     def getUniqueLabels(self):
         return np.unique([annotation.label for annotation in self.annotations])
+
+    def getUniqueLabelTypes(self):
+        return set([annotation.labelType for annotation in self.annotations])
+        # np.unique(
+
 
     def __str__(self):
         return '\n'.join(str(annotation) for annotation in self.annotations)

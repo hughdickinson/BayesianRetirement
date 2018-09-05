@@ -35,8 +35,7 @@ for loop in range(5):
 
 # 3. Compute classifier skills (based on previously annotated subjects)
 knownClassifiers = Classifiers([
-    annotation.classifier for subject in knownSubjects.items()
-    for annotation in subject.annotations.items()
+    annotation.classifier for annotation in knownSubjects.annotations
 ])
 
 for classifier in knownClassifiers.items():

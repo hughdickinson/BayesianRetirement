@@ -32,10 +32,10 @@ class AnnotationModelBinary(AnnotationModelBase):
         the skill is defined as the probability of assigning any valid label given
         a specific true label.
         """
-        print(annotation.classifier.skills)
-        return annotation.classifier.skills[trueLabel] if (
+        # print(annotation.classifier.skills)
+        return annotation.classifier.getSkill(trueLabel) if (
             trueLabel == annotation.label
-        ) else 1.0 - annotation.classifier.skills[trueLabel]
+        ) else 1.0 - annotation.classifier.getSkill(trueLabel)
 
 
 class AnnotationPriorBase():

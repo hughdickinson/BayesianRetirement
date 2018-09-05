@@ -1,3 +1,5 @@
+import matplotlib.pyplot as mplplot
+import matplotlib.transforms as mpltrans
 import numpy as np
 
 from Annotations import AnnotationBase, Annotations
@@ -131,6 +133,62 @@ class Subjects():
             if isinstance(subject, Subject)
             and self.subsetCriterion(subject, id, trueLabel)
         ])
+
+    @property
+    def annotations(self):
+        return Annotations([
+            annotation for subject in self.items()
+            for annotation in subject.annotations.items()
+        ])
+
+    def plotAnnotations(self, plotAxes=None):
+        annotations = self.annotations
+        # print('All annotations:\n', annotations)
+        # print([annotation.label for annotation in annotations.items()])
+        # print('Unique annotations: {}'.format(np.unique([annotation.label for annotation in annotations.items()])))
+        annotationTypes = annotations.getUniqueLabelTypes()
+        if len(annotationTypes) != 1:
+            raise RuntimeError(
+                'Annotations appear to be of different types ({}). Cannot plot!'.
+                format(', '.join([
+                    annotationType.labelTypeName
+                    for annotationType in annotationTypes
+                ])))
+        annotationType = annotationTypes.pop()
+        numAnnotationLabels = annotationType.getNumLabels(annotations)
+        if np.isfinite(numAnnotationLabels):
+            if annotationType.labelTypeName == 'Categorical':
+                print('Not implemented for type: {}'.format(
+                    type(annotationType)))
+            else:
+                # integer or boolean
+                contents, bins, _ = mplplot.hist(
+                    [
+                        float(annotation.label)
+                        for annotation in annotations.items()
+                    ],
+                    bins=numAnnotationLabels,
+                    density=False)
+                bincentres = 0.5 * (bins[:-1] + bins[1:])
+                numAnnotations = float(len(annotations.annotations))
+                for content, bincentre in zip(contents / numAnnotations,
+                                              bincentres):
+                    plotAxes = mplplot.gca() if plotAxes is None else plotAxes
+                    annotateTrans = mpltrans.blended_transform_factory(
+                        plotAxes.transData, plotAxes.transAxes)
+                    mplplot.annotate(
+                        '{:.2f}'.format(content),
+                        xy=(bincentre, 0.5),
+                        ha='center',
+                        va='center',
+                        color='w' if content > 0.45 else 'k',
+                        xycoords=annotateTrans)
+                plotAxes.set_xlabel('Annotation Value', fontsize='x-large')
+                plotAxes.set_ylabel(
+                    'Number of Annotations', fontsize='x-large')
+        else:
+            #Real valued
+            print('Not implemented')
 
     def __str__(self):
         return '\n'.join(str(subject) for subject in self.subjects)
